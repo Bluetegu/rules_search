@@ -1,0 +1,103 @@
+<?php
+
+/**
+ * @file Rules search module
+ */
+
+/**
+ * Implements hook_block_info()
+ */
+function rules_search_block_info() {
+  $rules_ui = 'admin/config/workflow/rules';
+  $blocks['search_rules'] = array(
+    'info' => t('Search rules'),
+    'cache' => DRUPAL_NO_CACHE,
+    'properties' => array('administrative' => TRUE),
+    'visibility' => BLOCK_VISIBILITY_LISTED,
+    'pages' => "$rules_ui/components\r\n$rules_ui/reaction\r\n$rules_ui\r\n",
+    'status' => 1,
+    'region' => 'content',
+    'weight' => -10,
+  );
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view()
+ */
+function rules_search_block_view($delta = '') {
+  $block = array();
+
+  switch ($delta) {
+    case 'search_rules':
+      $block['content'] = drupal_get_form('rules_search_form');
+      break;
+  }
+  return $block;
+}
+
+/**
+ * Search Rules for the relevant text. Letter capitalization counts.
+ * @param unknown_type $str
+ */
+function rules_search_query($str) {
+  return db_query("SELECT id, name, label, plugin, active, data, CONCAT('...', SUBSTR(cnf.data, LOCATE('$str', cnf.data) - 20, (LENGTH('$str') + 40)), '...') AS cdata FROM {rules_config} cnf WHERE cnf.data LIKE '%$str%'", array())->fetchAll();
+}
+
+/**
+ * Search rules form
+ * @param unknown_type $form
+ * @param unknown_type $form_state
+ */
+function rules_search_form($form, &$form_state) {
+
+  $form['input'] = array(
+    '#type' => 'item',
+    '#prefix' => '<div class="container-inline">',
+    '#postfix' => '</div>',
+  );
+  $form['input']['text'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Search'),
+    '#title_display' => 'invisible',
+    '#size' => 30,
+    '#default_value' => isset($form_state['values']['text']) ? $form_state['values']['text'] : '',
+    '#attributes' => array('title' => t('Enter the phrase you wish to search for.')),
+  );
+  $form['input']['actions'] = array('#type' => 'actions');
+  $form['input']['actions']['submit'] = array('#type' => 'submit', '#value' => t('Search Rules'));
+
+  $form['results'] = array(
+    '#markup' => @$form_state['values']['results'],
+  );
+
+  return $form;
+}
+
+/**
+ * Validate search form
+ * @param unknown_type $form
+ * @param unknown_type $form_state
+ */
+function rules_search_form_validate($form, &$form_state) {
+  if (strlen($form_state['values']['text']) < 2) {
+    form_set_error('text', t('Please enter search phrase with more than one letter.'));
+  }
+}
+
+/**
+ * Search and return results
+ * @param unknown_type $form
+ * @param unknown_type $form_state
+ */
+function rules_search_form_submit($form, &$form_state) {
+  $rules = rules_search_query($form_state['values']['text']);
+
+  $header = array(t('Name'), t('Text'), t('Edit'));
+  $rows = array();
+  foreach($rules as $rule) {
+    $rows[] = array($rule->label, $rule->cdata, l('Edit', RulesPluginUI::path($rule->name)));
+  }
+  $form_state['values']['results'] = theme('table', array('header' => $header, 'rows' => $rows, 'empty' => t('No matching rules found.')));
+  $form_state['rebuild'] = TRUE;
+}
