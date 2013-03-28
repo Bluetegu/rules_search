@@ -1,0 +1,5 @@
+name = Rules search
+description = Search rules and components.
+package = Rules
+core = 7.x
+dependencies[] = rules
