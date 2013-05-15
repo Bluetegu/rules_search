@@ -41,7 +41,13 @@ function rules_search_block_view($delta = '') {
  * @param unknown_type $str
  */
 function rules_search_query($str) {
-  return db_query("SELECT id, name, label, plugin, active, data, CONCAT('...', SUBSTR(cnf.data, LOCATE('$str', cnf.data) - 20, (LENGTH('$str') + 40)), '...') AS cdata FROM {rules_config} cnf WHERE cnf.data LIKE '%$str%'", array())->fetchAll();
+
+  $q = db_select('rules_config', 'c')->
+       fields('c', array('id', 'name', 'label', 'plugin', 'active', 'data'))->
+       condition('data', '%'. db_like($str) .'%', 'LIKE');
+  $q->addExpression("CONCAT('...', SUBSTR(c.data, LOCATE(:str, c.data) - 20, (LENGTH(:str) + 40)), '...')", 'cdata', array(':str' => $str));
+
+  return $q->execute()->fetchAll();
 }
 
 /**
